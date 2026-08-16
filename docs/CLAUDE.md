@@ -18,11 +18,13 @@ cd frontend
 npm run dev              # Vite dev server (http://localhost:5173)
 npm run build            # Type-check + production build (base: './')
 npm run build:pwa        # PWA build (VITE_LOCAL_BACKEND=true, IndexedDB)
-npx vue-tsc --noEmit    # TypeScript check only
+npm run typecheck        # TypeScript check only
+npm test                 # Vitest — localDb ↔ backend symmetry tests
 
 # === Backend ===
 cd backend
 uvicorn app.main:app --reload   # FastAPI (http://localhost:8000)
+python -m pytest -q             # Run backend test suite
 
 # === Electron ===
 cd electron-app

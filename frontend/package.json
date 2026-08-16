@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "build:pwa": "vue-tsc -b && vite build --mode pwa",
+    "typecheck": "vue-tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "android:sync": "npx cap sync android",
     "android:build": "npm run build:pwa && npx cap sync android && cd android && ./gradlew assembleDebug",
     "preview": "vite preview",
@@ -28,8 +31,10 @@
     "@types/node": "^24.12.3",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/tsconfig": "^0.9.1",
+    "fake-indexeddb": "^6.2.5",
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
+    "vitest": "^4.1.10",
     "vue-tsc": "^3.2.8"
   }
 }

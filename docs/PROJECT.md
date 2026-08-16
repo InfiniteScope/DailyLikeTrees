@@ -1,6 +1,6 @@
-# PROJECT.md — DailyLikeTrees 项目总纲（老屋重装最高规则）
+# PROJECT.md — DailyLikeTrees 项目总纲
 
-> **本文档是「老屋重装」的最高规则文件（master rules）。**
+> **本文档是该项目开发的最高规则文件 一定程度上可作为HANDOVER文档阅读。**
 > 任何 AI 助手 / 开发者在本仓库动手前必须完整阅读本文档。
 > 与 CLAUDE.md / README.md 冲突时，**以本文档为准**，并将冲突修正回各文档。
 > 修改代码时不得违反第 4 章的「红线规则」；遇到第 8 章的「已知问题」时先对照，不得擅自重构。
@@ -9,11 +9,9 @@
 
 ## 0. 项目演进历史（必读背景）
 
-项目由多个 AI 接力开发完成，需求推进脉络记录在 `提示词暂存 ai不需要读.md`（用户存档的历次 Prompt，虽被 gitignore，但本地存在）：
-
 - **v0.1.0 之前**：Web MVP（DeepSeek v4pro 起步）→ MIMO-v2.5 改良视觉 → kimi k2.7code 优化天气效果
 - **核心迭代**：37 种 PNG 树精灵替换 SVG → 包豪斯风格 UI → 溪流/山地地形算法重写 → 开发者工具 → 环境音分层绑定 → 用户设置记忆
-- **桌面端**：最初 Tauri（WebView2 不稳定、白屏、窗口控制 bug 反复）→ **改用 Electron 33 为主力**。2026-08 重装时**已彻底移除 Tauri**（源码、依赖、产物全清，backend.exe 产物移至 `backend/dist/`）
+- **桌面端**：最初 Tauri（WebView2 不稳定、白屏、窗口控制 bug 反复）→ **改用 Electron 33 为主力**，Tauri 保留为备选壳
 - **移动端**：Capacitor 8 + PWA（`VITE_LOCAL_BACKEND=true` 走 IndexedDB，无本地后端）
 - **现状**：多平台 MVP 可用。Electron 0.2.0 是当前最完整的产品形态；Android 适配未完成（竖屏、布局差距大等遗留问题）
 
@@ -29,23 +27,19 @@
 
 | 优先级 | 运行时 | 检测标志 | `usePlatform()` 结果 |
 |---|---|---|---|
-| 1 | **Electron**（唯一桌面壳） | `window.electronAPI` | `pc` |
-| 2 | **Capacitor**（Android） | `window.Capacitor` | `mobile` |
-| 3 | 浏览器 | UA + 触屏启发式 | `pc` / `mobile` |
+| 1 | **Electron**（主力桌面） | `window.electronAPI` | `pc` |
+| 2 | **Tauri v2**（备选桌面） | `window.__TAURI_INTERNALS__` | `pc`（UA 含 tauri-mobile 才 mobile） |
+| 3 | **Capacitor**（Android） | `window.Capacitor` | `mobile` |
+| 4 | 浏览器 | UA + 触屏启发式 | `pc` / `mobile` |
 
 - 检测在**模块加载期一次性锁定**（`usePlatform.ts` + `router/index.ts`），运行期不切换
 - 路由为 hash 模式（PWA/file:// 兼容），`/` 与 `/forest` 按平台分 PC/Mobile 两套视图，`/floating` 共享
-- **平台特有的 UI 规则**：窗口控制按钮（最小化/最大化/关闭）仅 Electron 渲染（CustomTitleBar）；悬浮球在桌面是独立原生窗口、浏览器是 Teleport 内联球
+- **平台特有的 UI 规则**：窗口控制按钮（最小化/最大化/关闭）仅 Electron/Tauri 渲染（CustomTitleBar）；悬浮球在桌面是独立原生窗口、浏览器是 Teleport 内联球
 
 ## 3. 仓库结构总览
 
 ```
 DailyLikeTrees/
-├── docs/                       # 开发文档（仅 CLAUDE.md、PROJECT.md 上传仓库，其余被 gitignore）
-│   ├── CLAUDE.md               # Claude Code 精简指引
-│   ├── PROJECT.md              # 本文档 · 最高规则
-│   ├── 主创意文档.md            # 产品创意需求（本地）
-│   └── 提示词暂存*.md           # 历次 AI 需求演进存档（本地）
 ├── frontend/                      # Vue 3 + Vite 8 前端（唯一 UI 代码源，所有端共用）
 │   ├── public/assets/
 │   │   ├── trees/species/tree1..tree37/variant_0.png   # 37 种树精灵（PNG，各 1 个变体）
@@ -70,20 +64,21 @@ DailyLikeTrees/
 │   │   ├── utils/         isometric / treeGrowth / assetPaths / constants
 │   │   ├── types/         timer / todo / tree / forest / settings
 │   │   └── router/  main.ts  App.vue  styles/
+│   ├── src-tauri/         # Tauri 备选壳（desktop.rs 与 Electron main.js 同构；mobile.rs 空壳）
 │   ├── android/           # Capacitor Android 工程（appId: com.dailyliketrees.app）
 │   ├── vite.config.ts     # 只有 vue 插件 + base:'./'（红线）
 │   └── .env.pwa           # VITE_LOCAL_BACKEND=true
-├── backend/               # FastAPI + SQLite（PyInstaller 打包为 backend/dist/backend.exe）
+├── backend/               # FastAPI + SQLite（PyInstaller 打包为 backend.exe）
 │   ├── app/models/        # FocusSession / PlantedTree / Todo / UserSetting
 │   ├── app/schemas/       # Pydantic 模型
 │   ├── app/routers/       # sessions / trees / todos / settings
 │   ├── app/services/      # session_service（种树事务）/ tree_service / todo_service / settings_service
 │   ├── app/utils/growth.py
 │   └── run.py             # PyInstaller GUI 入口（stdout 重定向 backend.log）
-├── electron-app/          # Electron 桌面壳（唯一桌面方案；main.js / preload.js）
-├── README.md              # 对外文档
-├── LICENSE
-└── 主创意文档.md / 提示词暂存*.md → 已迁移至 docs/（本地存档，不上传）
+├── electron-app/          # Electron 主力桌面壳（main.js / preload.js）
+├── CLAUDE.md              # 精简版指引（保留）
+├── README.md              # 对外文档（保留）
+└── 提示词暂存*.md / 主创意文档.md  # 需求演进存档（gitignore）
 ```
 
 **关键索引**（改到对应功能先读这些文件）：
@@ -92,7 +87,7 @@ DailyLikeTrees/
 - 种树/树查询：`backend/app/services/session_service.py` + `routers/trees.py` + `frontend/src/services/localDb.ts`
 - 音频：`composables/useAudioEngine.ts` + `useAmbianceController.ts` + `stores/audio.ts` + `AudioControlPanel.vue`
 - 悬浮球：`components/layout/FloatingBall.vue` + `views/FloatingBallView.vue` + `electron-app/main.js`
-- 桌面壳：`electron-app/main.js`（preload.js 暴露 window.electronAPI）
+- 桌面壳：`electron-app/main.js`（与 `frontend/src-tauri/src/desktop.rs` 保持同构）
 
 ---
 
@@ -124,7 +119,7 @@ DailyLikeTrees/
 
 13. **Electron 环境变量**：`ELECTRON_RUN_AS_NODE=1` 会让 Electron 变纯 Node。`npm start` 脚本必须 `set ELECTRON_RUN_AS_NODE=` 清除后再启动。
 
-14. **electron-builder 的 `files` 只认本地 `dist/**/*`**：构建流程 = 构建前端 → `copy:dist`（fs.cpSync 复制 `../frontend/dist` 到本地 `dist/`）→ electron-builder。跨目录 glob（`"../frontend/dist/**/*"`）不生效。**backend.exe 由 `backend/dist/backend.exe` 提供（PyInstaller 产物），Electron 的 extraResources 直接引用**。
+14. **electron-builder 的 `files` 只认本地 `dist/**/*`**：构建流程 = 构建前端 → `copy:dist`（fs.cpSync 复制 `../frontend/dist` 到本地 `dist/`）→ electron-builder。跨目录 glob（`"../frontend/dist/**/*"`）不生效。**backend.exe 由 `frontend/src-tauri/binaries/` 产出，Electron 的 extraResources 直接复用**（跨壳耦合，勿拆）。
 
 15. **CSS 主题走 `[data-theme]` 自定义属性**，组件一律用 `var(--color-*)`，禁止硬编码颜色。天气/雨滴等效果颜色需随主题自适应（浅色雨滴蓝、闪电黄；深色闪电减频减亮）。
 
@@ -204,6 +199,7 @@ DailyLikeTrees/
 
 - **触发**：失焦 + 1s 轮询 `checkFocus()`；`settings.floatingBallEnabled` 开启；浏览器端为 Teleport 内联球，桌面端为原生窗口
 - **Electron**：`electronAPI.openFloating({width:130, height:75})`；状态同步走 `sendEvent('fb:state')` / `onEvent` 订阅，elapsed 每 3s 节流推送
+- **Tauri**：动态 import `WebviewWindow('floating-ball')`，`plugin:event|emit` / `listen`
 - **浮窗页**（FloatingBallView，无 shell）：收到 `timerStatus==='running'` 后本地 setInterval 自走秒；展开/收起调 `resizeFloating(260,380)/(130,75)`；整窗 `-webkit-app-region: drag`；点击 todo 反发 `fb:set-active` 回主窗口
 - **已知缺陷**：每次开浮窗都注册新 `onEvent` 订阅，可能累积监听器
 
@@ -250,7 +246,7 @@ DailyLikeTrees/
 
 ## 7. 各平台壳
 
-### 7.1 Electron（唯一桌面壳，`electron-app/`）
+### 7.1 Electron（主力，`electron-app/`）
 
 - 主窗口 1320×950（小屏按比例缩放，下限 960×692），`frame:false` + CustomTitleBar 拖拽（`-webkit-app-region: drag`）
 - `startBackend()`：生产 → taskkill 清理（**含 `taskkill /F /T /IM python.exe`，会杀用户机器上所有 Python 进程——高危**）→ 800ms 忙等自旋 → 从 `process.resourcesPath/backend.exe` 与 exe 目录二选一 spawn；开发 → `python -m uvicorn app.main:app`（cwd=backend）
@@ -260,7 +256,13 @@ DailyLikeTrees/
 - 无健康检查：spawn 后不确认 8000 端口就绪（前端靠 todos 重试兜底）
 - 版本号在 `package.json`（当前 0.2.0），打包后需同步 `bundle` 目录
 
-### 7.2 Capacitor（Android，`frontend/android/`）
+### 7.2 Tauri（备选，`frontend/src-tauri/`）
+
+- `desktop.rs` 与 Electron main.js 同构：backend.exe 候选搜索、端口清理、窗口缩放、退出杀进程树；**内嵌 tiny_http 静态服务器**（WebView2 149+ 无法渲染 tauri:// 协议 → 随机端口 serve dist）；目录穿越防护（canonicalize + starts_with）
+- 固定 WebView2 Runtime（`WebView2Fixed` 目录）解决兼容性
+- `mobile.rs` 是空壳（Tauri 移动端未实现，仅 TODO）
+
+### 7.3 Capacitor（Android，`frontend/android/`）
 
 - PWA 构建（`VITE_LOCAL_BACKEND=true`）→ `cap sync` → Gradle debug APK
 - 数据全走 IndexedDB，无本地后端；`androidScheme:'https'`、`allowMixedContent:false`
@@ -305,12 +307,19 @@ DailyLikeTrees/
 - 37 种树各只有 variant_0（variant 系统是预留能力，未启用）
 - 音频引擎对 404 静默容忍（历史占位设计）——现在文件已齐，可考虑报错
 - 仓库根目录曾被提交 `DailyLikeTrees-portable.zip`（已 gitignore，如存在可删）
-- `backend/tests/` 目录存在但为空（测试基础设施未建设）
 - 移动端整体适配未完成（README 已声明）
+
+### 8.5 测试基建（2026-08 已建立）
+
+- **后端 pytest**（`backend/tests/`，34 用例）：种树事务（1 session → 4 行）、growth 阈值边界、filter key 格式、级联删除、todos CRUD/reorder、settings 默认值与 bool 字符串存储。隔离方案：`conftest.py` 用内存 SQLite（StaticPool）+ `app.dependency_overrides[get_db]`，**绝不触碰真实 data.db**（TestClient 不用 context manager，避免触发 lifespan）
+- **前端 vitest**（`frontend/test/`，21 用例）：`localDb ↔ treeGrowth ↔ 后端` 三处实现对称性（growth 阈值、filter key 格式、种树事务镜像、级联删除、todos、settings）+ fake-indexeddb 隔离（每个用例全新 IDBFactory）
+- **CI**（`.github/workflows/ci.yml`）：push main / PR 时跑 frontend（typecheck → build → vitest）+ backend（pytest）
+- **已知收益**：对称性测试已抓到并修复一个真实漂移 bug（localDb 首个 todo 的 sort_order 从 1 起、后端从 0 起）
+- **纪律**：改 growth 阈值 / filter key 计算时，三处实现 + 两端测试断言表必须同步改（`backend/tests/test_growth.py` ↔ `frontend/test/treeGrowth.test.ts`）
 
 ### 8.4 历史教训（Prompt 存档中反复踩的坑）
 
-1. **改动窗口控制/平台检测/布局前**：务必先读 `usePlatform.ts`、`CustomTitleBar.vue`、`electron-app/main.js`，历史上多次"越改越坏"（Tauri 时代尤其严重）
+1. **改动窗口控制/平台检测/布局前**：务必先读 `usePlatform.ts`、`CustomTitleBar.vue`、`main.js`，历史上多次"越改越坏"
 2. **视觉迭代纪律**：所有改动保持包豪斯风格（无衬线细体、少 emoji、标准 UI 图标如 @lucide/vue、IconSvg）；图标绘制后必须自查可读性（历史多次被批"看不出是什么"）
 3. **换资源必须同步路径表**：换树/音频后检查 `assetPaths.ts` 映射与文件名一致（历史：换 PNG 后森林仍显示旧 SVG）
 4. **前端效果性能**：晴天光束/雨天菱形重建是已知性能重头，优化时"几乎不影响视觉效果"为前提
@@ -343,8 +352,9 @@ cd electron-app && npm start
 ```bash
 # 1. 构建 backend.exe（PyInstaller）
 cd backend && pyinstaller --onefile --name backend --collect-all uvicorn --collect-all fastapi --collect-all sqlalchemy --collect-all aiosqlite run.py
-# 产物：backend/dist/backend.exe（Electron extraResources 自动引用此路径）
-# 2. 构建 Electron 安装包（自动 build frontend → copy dist → electron-builder）
+# 2. 复制到 Tauri 资源目录（Electron extraResources 复用此产物！）
+cp backend/dist/backend.exe frontend/src-tauri/binaries/backend.exe
+# 3. 构建 Electron 安装包（自动 build frontend → copy dist → electron-builder）
 cd electron-app && npm run build
 # 产物：electron-app/release/DailyLikeTrees Setup x.x.x.exe + win-unpacked/
 ```
@@ -366,10 +376,10 @@ npm run android:build                  # 完整 Gradle debug APK
 1. **止血**：修复 8.1 的 F1–F12 功能性 bug（每项改动小、风险可控）
 2. **安全**：移除 H1 的 python.exe 全局 kill（改为只杀自己 spawn 的 PID 树）、CORS 收紧、DELETE 加确认参数
 3. **可靠**：`complete()` 失败重试/队列、`fetchTrees()` 加重试、后端端口动态探测、settings 双写冲突策略
-4. **一致性**：三份 growth 阈值与 filter key 计算收敛为单一来源（前端生成 key 传入后端，或后端返回 key）；localDb 与后端逻辑对齐测试
+4. **一致性**：三份 growth 阈值与 filter key 计算收敛为单一来源（前端生成 key 传入后端，或后端返回 key）；localDb 与后端逻辑对齐测试（测试基建已建立，见 §8.5）
 5. **体验**：移动端适配（竖屏布局、设置 tab）
-6. **工程质量**：建立 backend/tests（Pytest + httpx，依赖已装）、前端 vitest、CLAUDE.md 与本文档同步更新
+6. **工程质量**：CI 已建立（§8.5）；后续可加 Electron 手动触发 release workflow（PyInstaller + electron-builder）
 
 ---
 
-*文档版本：v1.1（2026-08-16）。v1.0 重装前盘点；v1.1 彻底移除 Tauri（源码/依赖/产物全清），backend.exe 产物迁至 `backend/dist/`，docs/ 目录建立（仅 CLAUDE.md、PROJECT.md 上传仓库）。本文档随重装进度持续维护，每次重大架构变更必须回写本文档。*
+*文档版本：v1.2（2026-08-16）。v1.0 重装前盘点；v1.1 彻底移除 Tauri，docs/ 目录建立；v1.2 建立测试基建（后端 pytest 34 用例、前端 vitest 21 用例、CI workflow，详见 §8.5）。本文档随重装进度持续维护，每次重大架构变更必须回写本文档。*

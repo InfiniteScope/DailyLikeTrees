@@ -116,7 +116,8 @@ function monthStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-function computeFilterKeys(): Record<string, string> {
+/** Compute all time-filter keys (mirrors backend _compute_filter_key). Exported for symmetry tests. */
+export function computeFilterKeys(): Record<string, string> {
   return { today: todayStr(), week: weekStr(), month: monthStr(), total: 'total' }
 }
 
@@ -124,7 +125,8 @@ function computeFilterKeys(): Record<string, string> {
 // Growth stage (mirrors backend/app/utils/growth.py)
 // ═══════════════════════════════════════════════════════════════
 
-function getGrowthStage(durationMinutes: number): number {
+/** Growth stage (mirrors backend/app/utils/growth.py). Exported for symmetry tests. */
+export function getGrowthStage(durationMinutes: number): number {
   if (durationMinutes <= 14) return 0
   if (durationMinutes <= 29) return 1
   if (durationMinutes <= 59) return 2
@@ -369,9 +371,10 @@ export async function getTodos(): Promise<LocalTodo[]> {
 export async function createTodo(content: string): Promise<LocalTodo> {
   const db = await openDB()
 
-  // Find max sort_order
+  // Find max sort_order (start at -1 so the first todo gets 0,
+  // matching the backend which uses None → 0.0)
   const all = await getTodos()
-  const maxOrder = all.reduce((max, t) => Math.max(max, t.sort_order), 0)
+  const maxOrder = all.reduce((max, t) => Math.max(max, t.sort_order), -1)
 
   const now = new Date().toISOString()
   const todo: Omit<LocalTodo, 'id'> = {
