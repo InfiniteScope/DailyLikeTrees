@@ -27,9 +27,9 @@ body {
   background: var(--color-bg);
 }
 
-/* Tauri frameless window: transparent background for custom rounded corners */
-html.tauri-app,
-html.tauri-app body {
+/* Electron frameless window: transparent background for custom rounded corners */
+html.electron-app,
+html.electron-app body {
   background: transparent;
 }
 
@@ -83,8 +83,8 @@ body:hover ::-webkit-scrollbar-thumb,
   background: var(--color-text-tertiary);
 }
 
-/* Hide the ugly Windows window-resize grip (bottom-right corner) in Tauri */
-html.tauri-app body {
+/* Hide the ugly Windows window-resize grip (bottom-right corner) in Electron */
+html.electron-app body {
   overflow: hidden;
 }
 
@@ -94,7 +94,7 @@ html.tauri-app body {
   scrollbar-color: var(--color-border) transparent;
 }
 
-html.tauri-app * {
+html.electron-app * {
   scrollbar-width: none;
 }
 

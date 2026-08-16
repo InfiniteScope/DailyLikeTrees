@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DailyLikeTrees is a multi-platform focus/productivity app inspired by the Forest app. Users set a focus timer → complete it → plant a tree in their isometric "Focus Forest."
 
-**Platforms:** Web (SPA + PWA), Electron desktop (Windows), Tauri desktop (备选), Android (Capacitor).
+**Platforms:** Web (SPA + PWA), Electron desktop (Windows), Android (Capacitor).
 
 **Tech stack:** Vue 3 Composition API + TypeScript + Vite 8 (frontend), FastAPI + SQLite3 (backend), PixiJS 7.4.3 for isometric forest rendering, Web Audio API for ambient audio mixing, Electron 33 for desktop, Capacitor 8 for Android.
 
@@ -44,18 +44,17 @@ The frontend dev server proxies to `localhost:8000` for API calls (hardcoded bas
 
 ### Runtimes & Platform Detection
 
-The app supports 4 runtime environments, detected at startup:
+The app supports 3 runtime environments, detected at startup:
 
 | Priority | Runtime | Detection | `usePlatform()` |
 |----------|---------|-----------|-----------------|
 | 1 | **Electron** | `window.electronAPI` (contextBridge) | `pc` |
-| 2 | **Tauri v2** | `window.__TAURI_INTERNALS__` | `pc` (or `mobile` if UA has `tauri-mobile`) |
-| 3 | **Capacitor** | `window.Capacitor` | `mobile` |
-| 4 | **Browser** | UA sniffing + screen touch heuristic | `pc` or `mobile` |
+| 2 | **Capacitor** | `window.Capacitor` | `mobile` |
+| 3 | **Browser** | UA sniffing + screen touch heuristic | `pc` or `mobile` |
 
 Key files:
 - [`usePlatform.ts`](frontend/src/composables/usePlatform.ts) — detection composable + `detectPlatform()` pure function used by router at module load
-- [`CustomTitleBar.vue`](frontend/src/components/layout/CustomTitleBar.vue) — window controls only render when Electron or Tauri detected
+- [`CustomTitleBar.vue`](frontend/src/components/layout/CustomTitleBar.vue) — window controls only render when Electron detected
 - [`FloatingBall.vue`](frontend/src/components/layout/FloatingBall.vue) — uses `electronAPI.openFloating()` / `electronAPI.sendEvent()` for IPC
 - [`main.ts`](frontend/src/main.ts) — adds `electron-app` class to `<html>` when Electron detected
 
@@ -65,7 +64,7 @@ Key files:
 
 | Mode | Trigger | Storage |
 |------|---------|---------|
-| **Remote HTTP** | Default (dev/Electron/Tauri) | FastAPI at `localhost:8000` |
+| **Remote HTTP** | Default (dev/Electron) | FastAPI at `localhost:8000` |
 | **Local IndexedDB** | `VITE_LOCAL_BACKEND=true` (PWA/mobile) | Browser IndexedDB via `localDb.ts` |
 
 All API functions (`completeSession`, `getTrees`, `getTodos`, `updateSettings`, etc.) check `USE_LOCAL` at call time and route to the appropriate backend. The PWA build sets `VITE_LOCAL_BACKEND=true` via `.env.pwa`.
@@ -167,7 +166,7 @@ CSS custom properties on `[data-theme="dark"]` / `[data-theme="light"]` (or `:ro
 
 5. **Terrain random seed** is generated on every mount (`Math.random() * 1000`), influencing peak positions, creek paths, and noise offsets. This means each visit to `/forest` produces different terrain layout.
 
-6. **Audio files are placeholders** — they don't exist yet. The engine silently handles 404s. Don't report missing audio as errors.
+6. **Audio files exist** under `frontend/public/assets/audio/` (7 ambiance tracks + 3 BGM). The engine still tolerates missing files gracefully (returns null, no crash) — don't remove that tolerance.
 
 7. **Tree growth animation** uses PixiJS ticker with ease-out cubic. Duration 700ms/tree, 55ms stagger. `forceRefresh` prop → `startGrowthAnimation()` called for all trees. Without `forceRefresh`, only new trees animate.
 

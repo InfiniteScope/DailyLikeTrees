@@ -1,7 +1,6 @@
 <template>
   <div
     class="fb-window"
-    data-tauri-drag-region
     @mousedown="onMouseDown"
   >
     <!-- Collapsed: timer + active todo -->
@@ -45,17 +44,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 
-// ── Runtime detection (Electron / Tauri) ──
+// ── Runtime detection (Electron / Browser) ──
 const isElectron = typeof window !== 'undefined' && 'electronAPI' in window
 const electronAPI = isElectron ? (window as any).electronAPI : null
-
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-const tauri = isTauri ? (window as any).__TAURI_INTERNALS__ : null
-const tauriInvoke = tauri
-  ? (cmd: string, args?: Record<string, unknown>) => tauri.invoke(cmd, args).catch(() => {})
-  : null
-
-const winLabel = tauri?.metadata?.currentWindow?.label ?? 'floating-ball'
 
 // ── Local state ──
 interface TodoItem {
@@ -108,7 +99,7 @@ function stopTicking() {
   if (tickTimer) { clearInterval(tickTimer); tickTimer = null }
 }
 
-// ── Tauri events ──
+// ── Events ──
 let unlisten: (() => void) | null = null
 
 async function setupEventListener() {
@@ -119,23 +110,6 @@ async function setupEventListener() {
     })
     // Request initial state from main window
     electronAPI.sendEvent('fb:request-state', {})
-    return
-  }
-
-  // ── Tauri path ──
-  if (!isTauri) return
-  try {
-    const { listen } = await import('@tauri-apps/api/event')
-    unlisten = await listen('fb:state', (event: any) => {
-      handleStateUpdate(event.payload)
-    })
-
-    // Request initial state from main window
-    if (tauriInvoke) {
-      tauriInvoke('plugin:event|emit', { event: 'fb:request-state', payload: {} })
-    }
-  } catch (e) {
-    console.warn('FloatingBallView: failed to setup event listener', e)
   }
 }
 
@@ -156,9 +130,7 @@ function handleStateUpdate(payload: any) {
 function onMouseDown(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (target.closest('button') || target.closest('.fb-todo-item')) return
-  if (isElectron) return // Electron handles drag via CSS -webkit-app-region
-  if (!tauriInvoke) return
-  tauriInvoke('plugin:window|start_dragging', { label: winLabel })
+  // Electron handles drag via CSS -webkit-app-region
 }
 
 // ── Expand / collapse + notify main window to resize ──
@@ -175,13 +147,7 @@ function collapse() {
 function notifyResize(width: number, height: number) {
   if (isElectron && electronAPI) {
     electronAPI.resizeFloating(width, height)
-    return
   }
-  if (!tauriInvoke) return
-  tauriInvoke('plugin:window|set_size', {
-    label: winLabel,
-    value: { width, height },
-  })
 }
 
 // ── Set active todo ──
@@ -189,10 +155,6 @@ function setActiveTodo(id: number | null) {
   activeTodoId.value = id
   if (isElectron && electronAPI) {
     electronAPI.sendEvent('fb:set-active', { todoId: id })
-    return
-  }
-  if (tauriInvoke) {
-    tauriInvoke('plugin:event|emit', { event: 'fb:set-active', payload: { todoId: id } })
   }
 }
 

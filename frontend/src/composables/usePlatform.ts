@@ -5,7 +5,7 @@
  * components, layouts, and interactions.
  *
  * Detection strategy (in priority order):
- *   1. Tauri v2 mobile — window.__TAURI_INTERNALS__ + userAgent
+ *   1. Electron — window.electronAPI is defined (always PC)
  *   2. Capacitor — window.Capacitor is defined
  *   3. User-Agent sniffing — Android / iPhone / iPad
  *   4. Screen size — narrow screen + touch (fallback heuristic)
@@ -24,14 +24,6 @@ let _initialized = false
 export function detectPlatform(): 'pc' | 'mobile' {
   // 1. Electron (always PC)
   if (typeof window !== 'undefined' && 'electronAPI' in window) {
-    return 'pc'
-  }
-
-  // 2. Tauri v2 desktop/mobile
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-    const ua = navigator.userAgent || ''
-    // Tauri mobile injects "tauri-mobile" in UA; desktop does not
-    if (/tauri.*mobile/i.test(ua)) return 'mobile'
     return 'pc'
   }
 

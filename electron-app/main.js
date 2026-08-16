@@ -1,6 +1,5 @@
 /** Electron main process for DailyLikeTrees.
  *
- * Replaces the Tauri desktop.rs bootstrap:
  *  - Spawns backend.exe (production) or Python uvicorn (dev)
  *  - Creates frameless BrowserWindow (custom title bar)
  *  - Manages floating-ball second window
@@ -16,7 +15,6 @@ const fs = require('fs')
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend')
 const DIST_DIR = app.isPackaged ? path.join(__dirname, 'dist') : path.join(FRONTEND_DIR, 'dist')
 const BACKEND_DIR = path.join(__dirname, '..', 'backend')
-const BINARIES_DIR = path.join(__dirname, '..', 'frontend', 'src-tauri', 'binaries')
 const ICON_PATH = path.join(__dirname, 'icon.ico')
 
 // ── Logging ──────────────────────────────────────────────────────────

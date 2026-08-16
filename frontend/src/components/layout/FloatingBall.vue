@@ -3,7 +3,7 @@
   <Teleport to="body">
     <Transition name="fb">
       <div
-        v-if="visible && !isTauri"
+        v-if="visible"
         class="floating-ball"
         :class="{ expanded: expanded }"
         :style="ballStyle"
@@ -58,15 +58,9 @@ const settings = useSettingsStore()
 const timer = useTimerStore()
 const todos = useTodosStore()
 
-// ── Runtime detection (Electron / Tauri / Browser) ──
+// ── Runtime detection (Electron / Browser) ──
 const isElectron = typeof window !== 'undefined' && 'electronAPI' in window
 const electronAPI = isElectron ? (window as any).electronAPI : null
-
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-const tauri = isTauri ? (window as any).__TAURI_INTERNALS__ : null
-const tauriInvoke = tauri
-  ? (cmd: string, args?: Record<string, unknown>) => tauri.invoke(cmd, args).catch(() => {})
-  : null
 
 // ── Browser state ──
 const visible = ref(false)
@@ -75,12 +69,11 @@ const pos = ref({ x: window.innerWidth - 120, y: 120 })
 const dragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
 
-// ── Tauri floating-window state ──
-const FLOATING_LABEL = 'floating-ball'
+// ── Floating-window state ──
 let windowOpen = false
 let unlistenSetActive: (() => void) | null = null
 
-// ── Tauri: open / close the floating window ──
+// ── Open / close the floating window ──
 
 async function openFloatingWindow() {
   if (windowOpen) return
@@ -101,53 +94,8 @@ async function openFloatingWindow() {
     return
   }
 
-  if (!isTauri) { windowOpen = false; return }
-
-  try {
-    const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow')
-
-    const baseUrl = window.location.origin + window.location.pathname
-    const sw = window.screen.availWidth
-    const sh = window.screen.availHeight
-
-    // We store a reference to the window-creation promise so we can
-    // wait for the webview to be ready before emitting state.
-    new WebviewWindow(FLOATING_LABEL, {
-      url: baseUrl + '#/floating',
-      width: 130,
-      height: 75,
-      x: sw - 160,
-      y: sh - 140,
-      decorations: false,
-      transparent: true,
-      alwaysOnTop: true,
-      skipTaskbar: true,
-      focus: false,
-      shadow: true,
-      resizable: false,
-      visible: true,
-    })
-
-    // Listen for events FROM the floating window
-    const { listen } = await import('@tauri-apps/api/event')
-
-    unlistenSetActive = await listen('fb:set-active', (event: any) => {
-      const todoId = event.payload?.todoId ?? null
-      todos.setActiveTodo(todoId)
-    })
-
-    // When the floating window requests state, send it immediately
-    const unlistenReq = await listen('fb:request-state', () => {
-      emitStateToFloating()
-    })
-
-    // Merge cleanup
-    const prevCleanup = unlistenSetActive
-    unlistenSetActive = () => { prevCleanup(); unlistenReq() }
-  } catch (e) {
-    console.warn('Failed to create floating window:', e)
-    windowOpen = false
-  }
+  // Browser fallback: inline ball (no native window support)
+  windowOpen = false
 }
 
 async function closeFloatingWindow() {
@@ -160,14 +108,6 @@ async function closeFloatingWindow() {
     electronAPI.closeFloating()
     return
   }
-
-  if (!isTauri) return
-
-  try {
-    if (tauriInvoke) {
-      await tauriInvoke('plugin:window|close', { label: FLOATING_LABEL })
-    }
-  } catch { /* ignore */ }
 }
 
 async function emitStateToFloating() {
@@ -184,11 +124,7 @@ async function emitStateToFloating() {
 
   if (isElectron && electronAPI) {
     electronAPI.sendEvent('fb:state', state)
-    return
   }
-
-  if (!tauriInvoke) return
-  await tauriInvoke('plugin:event|emit', { event: 'fb:state', payload: state })
 }
 
 // ── Focus tracking ──
@@ -199,7 +135,7 @@ let focusCheckTimer: ReturnType<typeof setInterval> | null = null
 async function checkFocus() {
   const focused = document.hasFocus()
 
-  if (isTauri || isElectron) {
+  if (isElectron) {
     if (!focused && lastFocused && settings.floatingBallEnabled) {
       await openFloatingWindow()
     } else if (focused && !lastFocused) {
@@ -285,7 +221,7 @@ onUnmounted(() => {
   window.removeEventListener('blur', checkFocus)
   window.removeEventListener('focus', checkFocus)
   if (focusCheckTimer) clearInterval(focusCheckTimer)
-  if (isTauri) closeFloatingWindow()
+  closeFloatingWindow()
 })
 </script>
 

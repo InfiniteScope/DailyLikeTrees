@@ -2,7 +2,7 @@
      PC    → AppShell (top header nav)
      Mobile → AppShellMobile (bottom tab nav)
 
-     Special case: the /floating route boots a separate Tauri window.
+     Special case: the /floating route boots a separate Electron window.
      It must bypass AppShell so it doesn't try to spawn another FloatingBall. -->
 
 <script setup lang="ts">

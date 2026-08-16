@@ -1,7 +1,6 @@
 <template>
   <div
     class="custom-titlebar"
-    data-tauri-drag-region
     @mousedown="onTitleBarMouseDown"
   >
     <!-- App icon + title -->
@@ -31,7 +30,7 @@ import { computed, ref, onMounted } from 'vue'
 
 const logoPath = computed(() => `${import.meta.env.BASE_URL}assets/logo.png`)
 
-// ── Runtime detection: Electron → Tauri v2 → Browser ──
+// ── Runtime detection: Electron → Browser ──
 
 interface ElectronAPI {
   minimize(): Promise<void>
@@ -48,70 +47,36 @@ function getElectronAPI(): ElectronAPI | null {
   return null
 }
 
-interface TauriInternals {
-  invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown>
-  metadata: { currentWindow: { label: string } }
-}
-
-function getTauri(): TauriInternals | null {
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-    return (window as any).__TAURI_INTERNALS__ as TauriInternals
-  }
-  return null
-}
-
 const electron = getElectronAPI()
-const tauri = getTauri()
-const isDesktop = electron !== null || tauri !== null
-const winLabel = tauri?.metadata?.currentWindow?.label ?? 'main'
-
-async function invokeWindow(cmd: string) {
-  if (!tauri) return
-  try {
-    await tauri.invoke(`plugin:window|${cmd}`, { label: winLabel })
-  } catch { /* ignore */ }
-}
+const isDesktop = electron !== null
 
 const isMax = ref(false)
 
 async function refreshMaxState() {
   if (electron) {
     try { isMax.value = await electron.isMaximized() } catch { /* ignore */ }
-    return
   }
-  if (!tauri) return
-  try {
-    isMax.value = (await tauri.invoke('plugin:window|is_maximized', { label: winLabel })) as boolean
-  } catch { /* ignore */ }
 }
 
 async function handleMinimize() {
-  if (electron) { await electron.minimize(); return }
-  await invokeWindow('minimize')
+  if (electron) { await electron.minimize() }
 }
 
 async function handleToggleMaximize() {
   if (electron) {
     await electron.toggleMaximize()
     await refreshMaxState()
-    return
   }
-  await invokeWindow('toggle_maximize')
-  await refreshMaxState()
 }
 
 async function handleClose() {
-  if (electron) { await electron.close(); return }
-  await invokeWindow('close')
+  if (electron) { await electron.close() }
 }
 
 function onTitleBarMouseDown(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (target.closest('.ctrl-btn')) return
-  if (electron) return // Electron handles drag via CSS -webkit-app-region
-  if (!tauri) return
-  // startDragging must be called synchronously from the mousedown handler
-  tauri.invoke('plugin:window|start_dragging', { label: winLabel }).catch(() => {})
+  // Electron handles drag via CSS -webkit-app-region
 }
 
 onMounted(() => {

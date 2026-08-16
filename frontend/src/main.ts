@@ -11,11 +11,6 @@ import './styles/base.css'
 // Detect platform early (before router resolves)
 initPlatform()
 
-// Detect Tauri environment for frameless window styling
-if ('__TAURI__' in window) {
-  document.documentElement.classList.add('tauri-app')
-}
-
 // Detect Electron environment for frameless window styling
 if ('electronAPI' in window) {
   document.documentElement.classList.add('electron-app')

@@ -2,7 +2,7 @@
  *
  *  When VITE_LOCAL_BACKEND=true (PWA / mobile standalone), all calls go to
  *  the local IndexedDB layer.  Otherwise they hit the FastAPI backend at
- *  localhost:8000 (desktop Tauri / dev mode).
+ *  localhost:8000 (desktop Electron / dev mode).
  */
 
 import axios from 'axios'

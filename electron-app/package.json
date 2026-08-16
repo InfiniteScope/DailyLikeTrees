@@ -26,7 +26,7 @@
     ],
     "extraResources": [
       {
-        "from": "../frontend/src-tauri/binaries/backend.exe",
+        "from": "../backend/dist/backend.exe",
         "to": "backend.exe"
       }
     ],

@@ -18,9 +18,6 @@ frontend/dist-ssr/
 backend/build/
 backend/dist/
 backend/*.spec
-frontend/src-tauri/binaries/
-frontend/src-tauri/target/
-frontend/src-tauri/WebView2Fixed/
 frontend/android/app/build/
 frontend/android/build/
 frontend/android/.gradle/
@@ -70,12 +67,16 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# ── Docs ──
+# docs/ 目录保存全部开发文档，仅 CLAUDE.md 与 PROJECT.md 上传仓库
+docs/*
+!docs/CLAUDE.md
+!docs/PROJECT.md
+
 # ── Claude Code local ──
-.claude/settings.local.json
+.claude/
 
 # ── Scratch / personal notes ──
-提示词暂存*
-主创意文档*
 TODO*.md
 *.tmp
 
@@ -85,9 +86,6 @@ dist-portable/
 
 # ── Screenshots ──
 screenshots/
-
-# ── Claude Code (except checked-in CLAUDE.md) ──
-.claude/
 
 # ── Test coverage ──
 coverage/

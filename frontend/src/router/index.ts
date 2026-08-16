@@ -1,4 +1,4 @@
-/** Vue Router — hash-based for PWA + Tauri compatibility.
+/** Vue Router — hash-based for PWA + Electron file:// compatibility.
  *
  *  Platform-aware routing:
  *    PC    → views/HomeView.vue  / views/ForestViewPage.vue
