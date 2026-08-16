@@ -302,6 +302,6 @@ MIT License — 详见 [LICENSE](LICENSE) 文件。
 
 **🌳 每一棵树，都见证了你专注的时光。**
 
-Made with ❤️ by [Ultraism](https://github.com/2678725875-dot)
+Made with ❤️ by [InfiniteScope](https://github.com/InfiniteScope)
 
 </div>
