@@ -21,7 +21,7 @@
 
 ## 1. 项目定位
 
-**DailyLikeTrees（如树日常）**：Forest 专注森林的开源替代品 —— 设专注计时 → 完成 → 在等距森林种一棵树。数据全部本地（无账号、无云同步），强调视觉精致（包豪斯 + 自然动效）与多端一致性。
+**DailyLikeTrees（如树日常）**：Forest 专注森林的开源替代品 —— 设专注计时 → 完成 → 在等距森林种一棵树。数据全部本地（无账号、无云同步；真实天气显示会请求第三方接口，见 §5.4），强调视觉精致（包豪斯 + 自然动效）与多端一致性。
 
 ## 2. 平台矩阵与运行时检测
 
@@ -174,9 +174,16 @@ DailyLikeTrees/
 | 系统 | 来源 | 用途 |
 |---|---|---|
 | **模拟天气** | `stores/forest.ts` 的 `weather`（sunny/cloudy/rainy/thunderstorm） | 森林渲染 + 环境音选层 + 背景森林天气覆盖 |
-| **真实天气** | Open-Meteo（`useWeatherInfo.ts`：权限 → 定位 6s 超时 → IP 双 API 竞速 → 北京兜底） | Header 左上角天气/温度/时间显示（`settings.weatherEnabled` 控制，默认关） |
+| **真实天气** | Open-Meteo（`useWeatherInfo.ts`：权限 → 定位 6s 超时 → IP 双 API 并行 → 北京兜底） | Header 左上角天气/温度/时间显示（`settings.weatherEnabled`，**默认开**） |
 
 两者**完全无关**。改天气相关功能时先确认改的是哪套。
+
+**真实天气的联网与隐私（v1.3.2 核实）**：
+- `WeatherStatus.vue` 在 Header 中常驻，`useWeatherInfo()` 在 `onMounted` 无条件执行——**即使关闭“显示天气”，请求照发**，`weatherEnabled` 只控制 UI 是否渲染
+- 定位链：`navigator.permissions` 查询 → 已拒绝则直接走 IP；否则 `getCurrentPosition`（8 s 超时 + 6 s 安全兜底）
+- IP 定位是 **两个 API 并行**（`Promise.allSettled`）：`ipapi.co`（HTTPS）与 `ip-api.com`（**HTTP 明文**，免费版限制），两个请求都会发出，先成功者生效
+- 天气与城市名：`api.open-meteo.com`、`geocoding-api.open-meteo.com`（仅浏览器定位成功时查城市名）
+- 结论：核心功能（计时/森林/音频/待办/设置）完全离线可用；天气显示是唯一的第三方依赖，失败时静默降级到北京坐标
 
 ### 5.5 背景森林（BackgroundForest.vue + HomeView）
 
@@ -290,6 +297,7 @@ DailyLikeTrees/
 | F10 | trees 数组变化（fetchTrees 返回）会全量重排所有树位置（雨天上演瞬移）— **已修复 v1.3**（仅 id 集合/地形变化才重排） | `IsometricGrid.vue` watch |
 | F11 | `index.html` 的 `/favicon.png` `/manifest.json` `/sw.js` 绝对路径与 `base:'./'` 冲突，Electron file:// 下 404 — **已修复 v1.3**（构建产物本就相对；SW 注册与 manifest 图标已补相对） | `frontend/index.html` |
 | F12 | 时间 key 用服务端本地日期 vs 前端本地时区 → 跨时区数据错位；localDb 手写 ISO 周与 Python isocalendar 边界可能不一致 — **暂不改（v1.3 决定）**：所有端当前都连本机后端，时区一致；作为远程后端的前置条件 | `backend/routers/trees.py` / `localDb.ts` |
+| F13 | 真实天气默认开启且忽略 `weatherEnabled`（关闭只隐藏 UI，请求照发）；IP 定位使用 `ip-api.com` 明文 HTTP — **未修复（v1.3.2 仅文档化）**：应改为仅开启时请求、移除明文源、加缓存 | `useWeatherInfo.ts` / `WeatherStatus.vue` |
 
 ### 8.2 高危代码（动之前必须三思）
 
@@ -376,7 +384,7 @@ npm run android:build                  # 完整 Gradle debug APK
 ## 10. 重装建议路线图（按优先级）
 
 1. **止血**：修复 8.1 的 F1–F12 功能性 bug（每项改动小、风险可控）
-2. **安全**：移除 H1 的 python.exe 全局 kill（改为只杀自己 spawn 的 PID 树）、CORS 收紧、DELETE 加确认参数
+2. **安全**：移除 H1 的 python.exe 全局 kill（改为只杀自己 spawn 的 PID 树）、CORS 收紧、DELETE 加确认参数；真实天气仅在开启时请求并移除 `ip-api.com` 明文源（F13）
 3. **可靠**：~~`complete()` 失败重试/队列~~、~~`fetchTrees()` 加重试~~（v1.3 已完成）→ 剩余：后端端口动态探测、settings 双写冲突策略
 4. **一致性**：三份 growth 阈值与 filter key 计算收敛为单一来源（前端生成 key 传入后端，或后端返回 key）；localDb 与后端逻辑对齐测试（测试基建已建立，见 §8.5）
 5. **体验**：移动端适配（竖屏布局、设置 tab）
@@ -384,4 +392,4 @@ npm run android:build                  # 完整 Gradle debug APK
 
 ---
 
-*文档版本：v1.3（2026-10-31）。v1.0 重装前盘点；v1.1 彻底移除 Tauri，docs/ 目录建立；v1.2 建立测试基建（后端 pytest 34 用例、前端 vitest 21 用例、CI workflow，详见 §8.5）；v1.3 止血 F1–F11（F5 核查为已修，F6 判定非 bug，F12 暂缓），F9 落地 `client_id` 幂等 + localStorage 队列，后端测试增至 37 用例。本文档随重装进度持续维护，每次重大架构变更必须回写本文档。*
+*文档版本：v1.3.2（2026-10-31）。v1.0 重装前盘点；v1.1 彻底移除 Tauri，docs/ 目录建立；v1.2 建立测试基建（后端 pytest 34 用例、前端 vitest 21 用例、CI workflow，详见 §8.5）；v1.3 止血 F1–F11（F5 核查为已修，F6 判定非 bug，F12 暂缓），F9 落地 `client_id` 幂等 + localStorage 队列，后端测试增至 37 用例；v1.3.2 核实并更正真实天气的联网与隐私说明（默认开、关闭仍请求、ip-api.com 明文），登记 F13。本文档随重装进度持续维护，每次重大架构变更必须回写本文档。*
