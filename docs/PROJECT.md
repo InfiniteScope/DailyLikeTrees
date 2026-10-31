@@ -140,6 +140,7 @@ DailyLikeTrees/
 
 ### 5.2 种树事务（`backend/app/services/session_service.py`）
 
+0. **`client_id` 幂等（v1.3）**：若该 client_id 已有记录，直接返回原 session/tree，不重复种树（前端失败重放的安全前提）
 1. insert FocusSession → `db.flush()` 拿 id
 2. `actual_seconds / 60` → `get_growth_stage`（阈值见红线 7）
 3. `_assign_grid_position()`：查 today key 下最大 `grid_y`，行内计数，**每行 8 列**，行满换行（顺序分配，但前端忽略）
@@ -222,7 +223,7 @@ DailyLikeTrees/
 
 | 表 | 关键字段 | 说明 |
 |---|---|---|
-| `focus_sessions` | timer_mode, target_seconds, actual_seconds, status, species_id, started_at, ended_at | status 只有 'completed' 实际被写入 |
+| `focus_sessions` | timer_mode, target_seconds, actual_seconds, status, species_id, started_at, ended_at, **client_id**（v1.3，唯一，幂等键） | status 只有 'completed' 实际被写入；旧库由 `init_db()` 的 `_migrate_schema()` 自动加列 |
 | `planted_trees` | session_id(FK), species_id, growth_stage(0-3), grid_x, grid_y, **time_filter_key(索引)**, planted_at | 每 session 4 行 |
 | `todos` | content, completed(0/1), sort_order(Float) | |
 | `user_settings` | key(PK), value(String), updated_at | 通用 key-value |
@@ -237,6 +238,7 @@ DailyLikeTrees/
 | `dlt_forest_prefs` | terrain / weather 记忆 |
 | `theme` / `weatherEnabled` / `floatingBallEnabled` | settings store（与后端双写） |
 | `bgForest` | 背景森林的 filter |
+| `dlt_pending_sessions` | 未送达后端的完成会话队列（v1.3） |
 
 ### 6.3 IndexedDB（`dlt_local_db` v1，PWA/移动端）
 
@@ -276,18 +278,18 @@ DailyLikeTrees/
 
 | # | 问题 | 位置 |
 |---|---|---|
-| F1 | TreeSpeciesPicker 选中后不自动关闭（`selectAndClose` 未 emit close） | `components/timer/TreeSpeciesPicker.vue` |
-| F2 | 背景模式（is-background）下 canvas 仍可被 pointer 拖拽平移（onPointerDown 未拦截） | `IsometricGrid.vue` |
-| F3 | 移动端 SettingsPanel 的 `@close` 无消费方（组件未声明 emits） | `components/settings/SettingsPanel.vue` + `mobile/HomeView.vue` |
-| F4 | AppShellMobile 底部"设置"tab 事件无人消费（点了没反应） | `AppShellMobile.vue` |
-| F5 | FloatingBall 每次开浮窗都注册新 onEvent 订阅（监听器累积） | `components/layout/FloatingBall.vue` |
-| F6 | free 模式 running 时无法直接结束（必须先暂停）；countdown/countup paused 无"结束"按钮 | `CircularTimer.vue` |
-| F7 | 庆祝 toast 的 setTimeout 未清理 | `CircularTimer.vue` |
-| F8 | `fetchTrees()` 无重试（todos 有 3 次）→ Electron 启动竞态下森林空加载 | `stores/forest.ts` |
-| F9 | `complete()` 网络失败无重试无持久化队列 → 树静默丢失 | `stores/timer.ts` |
-| F10 | trees 数组变化（fetchTrees 返回）会全量重排所有树位置（雨天上演瞬移） | `IsometricGrid.vue` watch |
-| F11 | `index.html` 的 `/favicon.png` `/manifest.json` `/sw.js` 绝对路径与 `base:'./'` 冲突，Electron file:// 下 404 | `frontend/index.html` |
-| F12 | 时间 key 用服务端本地日期 vs 前端本地时区 → 跨时区数据错位；localDb 手写 ISO 周与 Python isocalendar 边界可能不一致 | `backend/routers/trees.py` / `localDb.ts` |
+| F1 | TreeSpeciesPicker 选中后不自动关闭（`selectAndClose` 未 emit close）— **已修复 v1.3** | `components/timer/TreeSpeciesPicker.vue` |
+| F2 | 背景模式（is-background）下 canvas 仍可被 pointer 拖拽平移（onPointerDown 未拦截）— **已修复 v1.3** | `IsometricGrid.vue` |
+| F3 | 移动端 SettingsPanel 的 `@close` 无消费方（组件未声明 emits）— **已修复 v1.3**（`openOnMount` + `close`） | `components/settings/SettingsPanel.vue` + `mobile/HomeView.vue` |
+| F4 | AppShellMobile 底部"设置"tab 事件无人消费（点了没反应）— **已修复 v1.3** | `AppShellMobile.vue` |
+| F5 | FloatingBall 每次开浮窗都注册新 onEvent 订阅（监听器累积）— **已核查：0a69457 已修复**（`windowOpen` 守卫 + close 时 unlisten） | `components/layout/FloatingBall.vue` |
+| F6 | free 模式 running 时无法直接结束（必须先暂停）；countdown/countup paused 无"结束"按钮 — **非 bug：§5.1 明确为设计**（中途结束＝放弃） | `CircularTimer.vue` |
+| F7 | 庆祝 toast 的 setTimeout 未清理 — **已修复 v1.3** | `CircularTimer.vue` |
+| F8 | `fetchTrees()` 无重试（todos 有 3 次）→ Electron 启动竞态下森林空加载 — **已修复 v1.3**（3 次 / 1s） | `stores/forest.ts` |
+| F9 | `complete()` 网络失败无重试无持久化队列 → 树静默丢失 — **已修复 v1.3**（`client_id` 幂等 + localStorage 队列，启动时重放） | `stores/timer.ts` + `services/pendingSessions.ts` |
+| F10 | trees 数组变化（fetchTrees 返回）会全量重排所有树位置（雨天上演瞬移）— **已修复 v1.3**（仅 id 集合/地形变化才重排） | `IsometricGrid.vue` watch |
+| F11 | `index.html` 的 `/favicon.png` `/manifest.json` `/sw.js` 绝对路径与 `base:'./'` 冲突，Electron file:// 下 404 — **已修复 v1.3**（构建产物本就相对；SW 注册与 manifest 图标已补相对） | `frontend/index.html` |
+| F12 | 时间 key 用服务端本地日期 vs 前端本地时区 → 跨时区数据错位；localDb 手写 ISO 周与 Python isocalendar 边界可能不一致 — **暂不改（v1.3 决定）**：所有端当前都连本机后端，时区一致；作为远程后端的前置条件 | `backend/routers/trees.py` / `localDb.ts` |
 
 ### 8.2 高危代码（动之前必须三思）
 
@@ -311,7 +313,7 @@ DailyLikeTrees/
 
 ### 8.5 测试基建（2026-08 已建立）
 
-- **后端 pytest**（`backend/tests/`，34 用例）：种树事务（1 session → 4 行）、growth 阈值边界、filter key 格式、级联删除、todos CRUD/reorder、settings 默认值与 bool 字符串存储。隔离方案：`conftest.py` 用内存 SQLite（StaticPool）+ `app.dependency_overrides[get_db]`，**绝不触碰真实 data.db**（TestClient 不用 context manager，避免触发 lifespan）
+- **后端 pytest**（`backend/tests/`，37 用例）：种树事务（1 session → 4 行）、growth 阈值边界、filter key 格式、级联删除、todos CRUD/reorder、settings 默认值与 bool 字符串存储、`client_id` 幂等（同键重放不重复种树）。隔离方案：`conftest.py` 用内存 SQLite（StaticPool）+ `app.dependency_overrides[get_db]`，**绝不触碰真实 data.db**（TestClient 不用 context manager，避免触发 lifespan）
 - **前端 vitest**（`frontend/test/`，21 用例）：`localDb ↔ treeGrowth ↔ 后端` 三处实现对称性（growth 阈值、filter key 格式、种树事务镜像、级联删除、todos、settings）+ fake-indexeddb 隔离（每个用例全新 IDBFactory）
 - **CI**（`.github/workflows/ci.yml`）：push main / PR 时跑 frontend（typecheck → build → vitest）+ backend（pytest）
 - **已知收益**：对称性测试已抓到并修复一个真实漂移 bug（localDb 首个 todo 的 sort_order 从 1 起、后端从 0 起）
@@ -375,11 +377,11 @@ npm run android:build                  # 完整 Gradle debug APK
 
 1. **止血**：修复 8.1 的 F1–F12 功能性 bug（每项改动小、风险可控）
 2. **安全**：移除 H1 的 python.exe 全局 kill（改为只杀自己 spawn 的 PID 树）、CORS 收紧、DELETE 加确认参数
-3. **可靠**：`complete()` 失败重试/队列、`fetchTrees()` 加重试、后端端口动态探测、settings 双写冲突策略
+3. **可靠**：~~`complete()` 失败重试/队列~~、~~`fetchTrees()` 加重试~~（v1.3 已完成）→ 剩余：后端端口动态探测、settings 双写冲突策略
 4. **一致性**：三份 growth 阈值与 filter key 计算收敛为单一来源（前端生成 key 传入后端，或后端返回 key）；localDb 与后端逻辑对齐测试（测试基建已建立，见 §8.5）
 5. **体验**：移动端适配（竖屏布局、设置 tab）
 6. **工程质量**：CI 已建立（§8.5）；后续可加 Electron 手动触发 release workflow（PyInstaller + electron-builder）
 
 ---
 
-*文档版本：v1.2（2026-08-16）。v1.0 重装前盘点；v1.1 彻底移除 Tauri，docs/ 目录建立；v1.2 建立测试基建（后端 pytest 34 用例、前端 vitest 21 用例、CI workflow，详见 §8.5）。本文档随重装进度持续维护，每次重大架构变更必须回写本文档。*
+*文档版本：v1.3（2026-10-31）。v1.0 重装前盘点；v1.1 彻底移除 Tauri，docs/ 目录建立；v1.2 建立测试基建（后端 pytest 34 用例、前端 vitest 21 用例、CI workflow，详见 §8.5）；v1.3 止血 F1–F11（F5 核查为已修，F6 判定非 bug，F12 暂缓），F9 落地 `client_id` 幂等 + localStorage 队列，后端测试增至 37 用例。本文档随重装进度持续维护，每次重大架构变更必须回写本文档。*

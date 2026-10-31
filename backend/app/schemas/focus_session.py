@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 
 class SessionCreate(BaseModel):
+    client_id: Optional[str] = None
     timer_mode: str
     target_seconds: int
     actual_seconds: int

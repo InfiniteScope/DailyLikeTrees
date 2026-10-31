@@ -9,6 +9,7 @@
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useSettingsStore } from './stores/settings'
+import { useTimerStore } from './stores/timer'
 import { usePlatform } from './composables/usePlatform'
 import { useAmbianceController } from './composables/useAmbianceController'
 import AppShell from './components/layout/AppShell.vue'
@@ -16,6 +17,7 @@ import AppShellMobile from './components/mobile/layout/AppShellMobile.vue'
 
 const route = useRoute()
 const settings = useSettingsStore()
+const timer = useTimerStore()
 const { isMobile } = usePlatform()
 
 // Floating-ball window: render just the view, no shell.
@@ -29,6 +31,8 @@ if (!isFloating.value) {
 onMounted(() => {
   if (!isFloating.value) {
     settings.loadSettings()
+    // Retry sessions queued while the backend was unreachable
+    void timer.flushPendingSessions()
   }
 })
 </script>

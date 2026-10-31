@@ -57,8 +57,22 @@ def create_session(db: Session, data: dict) -> dict:
     4. Insert the planted tree
     5. Return both records
     """
+    # 0. Idempotency: a retried request must not plant a second tree
+    client_id = data.get("client_id")
+    if client_id:
+        existing = db.query(FocusSession).filter(FocusSession.client_id == client_id).first()
+        if existing:
+            tree = (
+                db.query(PlantedTree)
+                .filter(PlantedTree.session_id == existing.id)
+                .order_by(PlantedTree.id)
+                .first()
+            )
+            return {"session": existing, "tree": tree}
+
     # 1. Create session
     session = FocusSession(
+        client_id=client_id,
         timer_mode=data["timer_mode"],
         target_seconds=data["target_seconds"],
         actual_seconds=data["actual_seconds"],

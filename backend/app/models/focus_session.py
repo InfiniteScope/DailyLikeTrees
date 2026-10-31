@@ -11,6 +11,7 @@ class FocusSession(Base):
     __tablename__ = "focus_sessions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(String, nullable=True, unique=True, index=True)  # idempotency key from client
     timer_mode = Column(String, nullable=False)      # 'countdown' | 'countup' | 'free'
     target_seconds = Column(Integer, nullable=False, default=0)
     actual_seconds = Column(Integer, nullable=False)

@@ -39,7 +39,7 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 /** Fetch all records from a store, optionally matching an index. */
-function getAll<T>(store: string, indexName?: string, indexValue?: string): Promise<T[]> {
+function getAll<T>(store: string, indexName?: string, indexValue?: IDBValidKey): Promise<T[]> {
   return openDB().then(db => {
     return new Promise<T[]>((resolve, reject) => {
       const t = db.transaction(store, 'readonly')
@@ -62,6 +62,7 @@ function getAll<T>(store: string, indexName?: string, indexValue?: string): Prom
 
 export interface LocalSession {
   id: number
+  client_id?: string
   timer_mode: string
   target_seconds: number
   actual_seconds: number
@@ -138,6 +139,7 @@ export function getGrowthStage(durationMinutes: number): number {
 // ═══════════════════════════════════════════════════════════════
 
 export interface SessionCreateData {
+  client_id?: string
   timer_mode: string
   target_seconds: number
   actual_seconds: number
@@ -155,11 +157,22 @@ export async function createSession(data: SessionCreateData): Promise<SessionCom
   const db = await openDB()
   const now = data.ended_at
 
+  // 0. Idempotency: replay of the same client_id must not plant twice
+  if (data.client_id) {
+    const sessions = await getAll<LocalSession>('sessions')
+    const existing = sessions.find(s => s.client_id === data.client_id)
+    if (existing) {
+      const trees = await getAll<LocalTree>('trees', 'session_id', existing.id)
+      if (trees.length > 0) return { session: existing, tree: trees[0] }
+    }
+  }
+
   // 1. Create session
   const sessionId = await new Promise<number>((resolve, reject) => {
     const t = db.transaction('sessions', 'readwrite')
     const s = t.objectStore('sessions')
     const req = s.add({
+      client_id: data.client_id,
       timer_mode: data.timer_mode,
       target_seconds: data.target_seconds,
       actual_seconds: data.actual_seconds,
@@ -212,6 +225,7 @@ export async function createSession(data: SessionCreateData): Promise<SessionCom
 
   const session: LocalSession = {
     id: sessionId,
+    client_id: data.client_id,
     timer_mode: data.timer_mode,
     target_seconds: data.target_seconds,
     actual_seconds: data.actual_seconds,
