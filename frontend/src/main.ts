@@ -16,8 +16,9 @@ if ('electronAPI' in window) {
   document.documentElement.classList.add('electron-app')
 }
 
-// Register Service Worker for PWA offline support
-if ('serviceWorker' in navigator) {
+// Register Service Worker for PWA offline support (production only —
+// a cache-first SW in dev serves stale assets after they change on disk)
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
     // SW registration failure is non-fatal (e.g. dev mode, HTTP)
   })

@@ -6,7 +6,9 @@
  *  - API calls → Network First (not cached; local mode uses IndexedDB)
  */
 
-const CACHE_NAME = 'dlt-v1'
+// Bump this whenever shipped static assets change, otherwise cache-first
+// keeps serving the old files to returning users.
+const CACHE_NAME = 'dlt-v2'
 const PRECACHE_URLS = [
   './',
   './index.html',

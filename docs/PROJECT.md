@@ -194,7 +194,13 @@ DailyLikeTrees/
 - **开关级联**：主开关 OFF → 双子开关都 OFF；主开关 ON → 双子都 ON；双子全 OFF → 主 OFF；任一子 ON → 主 ON
 - BGM 同曲不重启（`currentBgmTrack === track && bgmSource` 短路）——修复"切页面音乐从头播"的历史 bug
 - 音频文件**已真实存在**（10 个 mp3，见第 3 章目录）——CLAUDE.md 第 6 条「音频是占位符」已过时，勿再误报
-- 首次交互前 AudioContext 可能 suspended（浏览器策略），按钮需可重试
+- **v1.3.1 资源规格**：环境音 60 s、BGM 90 s 无缝循环，64 kbps 单声道 mp3（LAME），总计 5.3 MB（原 160.8 MB / 15–23 min / 128 kbps）。单层解码 PCM 约 10–15 MB（原 122–303 MB）
+- **v1.3.1 引擎约束**（`useAudioEngine.ts`，改动前先读）：
+  - 环境音与 BGM 各有 generation 计数器，`await loadBuffer()` 后必须复核；否则快速切歌/切层会叠音（历史实测 4 源同播）
+  - `loadBuffer` 用 `inFlightLoads` 去重并发请求；失败必须 `console.warn` 出 URL，禁止静默 `return null`
+  - 所有层切换走 `fadeOutAndStop`（淡出后 stop + disconnect）；新层 0.3 s 淡入
+  - AudioContext 在 `init()` 时挂 `pointerdown`/`keydown` 一次性手势监听调用 `resume()`；浏览器自动播放策略下否则永久 suspended
+- **SW 缓存**：`sw.js` 的 `CACHE_NAME` 每次随静态资源变更递增（当前 `dlt-v2`），且只在 `import.meta.env.PROD` 注册；dev 注册会让 cache-first 长期返回旧音频
 
 ### 5.7 悬浮球（三套实现）
 
@@ -290,6 +296,9 @@ DailyLikeTrees/
 | F10 | trees 数组变化（fetchTrees 返回）会全量重排所有树位置（雨天上演瞬移）— **已修复 v1.3**（仅 id 集合/地形变化才重排） | `IsometricGrid.vue` watch |
 | F11 | `index.html` 的 `/favicon.png` `/manifest.json` `/sw.js` 绝对路径与 `base:'./'` 冲突，Electron file:// 下 404 — **已修复 v1.3**（构建产物本就相对；SW 注册与 manifest 图标已补相对） | `frontend/index.html` |
 | F12 | 时间 key 用服务端本地日期 vs 前端本地时区 → 跨时区数据错位；localDb 手写 ISO 周与 Python isocalendar 边界可能不一致 — **暂不改（v1.3 决定）**：所有端当前都连本机后端，时区一致；作为远程后端的前置条件 | `backend/routers/trees.py` / `localDb.ts` |
+| F13 | 音频全量解码 15–23 min mp3：单层 303 MB PCM、解码 2.2–4.7 s、启动长任务 60–124 ms，缓存无淘汰（切地形/天气持续累加）— **已修复 v1.3.1**（短循环资源 + 并发去重 + 淡入淡出） | `useAudioEngine.ts` |
+| F14 | BGM 快速切换叠音：`playBgm` 无 generation 守卫，晚到的旧请求照常 start；`stopBgm` 只停最后一个引用 — **已修复 v1.3.1**（实测 5 源启动/1 停止 → 现恒为 1 条 BGM） | `useAudioEngine.ts` |
+| F15 | AudioContext 从不 `resume()`（init 在 onMounted，非手势）→ 浏览器首访永久无声；dev 也注册 cache-first SW，资源更新后长期返回旧文件 — **已修复 v1.3.1** | `useAudioEngine.ts` / `main.ts` / `public/sw.js` |
 
 ### 8.2 高危代码（动之前必须三思）
 
@@ -384,4 +393,4 @@ npm run android:build                  # 完整 Gradle debug APK
 
 ---
 
-*文档版本：v1.3（2026-10-31）。v1.0 重装前盘点；v1.1 彻底移除 Tauri，docs/ 目录建立；v1.2 建立测试基建（后端 pytest 34 用例、前端 vitest 21 用例、CI workflow，详见 §8.5）；v1.3 止血 F1–F11（F5 核查为已修，F6 判定非 bug，F12 暂缓），F9 落地 `client_id` 幂等 + localStorage 队列，后端测试增至 37 用例。本文档随重装进度持续维护，每次重大架构变更必须回写本文档。*
+*文档版本：v1.3.1（2026-10-31）。v1.0 重装前盘点；v1.1 彻底移除 Tauri，docs/ 目录建立；v1.2 建立测试基建（后端 pytest 34 用例、前端 vitest 21 用例、CI workflow，详见 §8.5）；v1.3 止血 F1–F11（F5 核查为已修，F6 判定非 bug，F12 暂缓），F9 落地 `client_id` 幂等 + localStorage 队列，后端测试增至 37 用例；v1.3.1 修复音频模块 F13–F15（资源重编 160.8 MB → 5.3 MB，单层解码 303 MB → 10 MB，BGM 叠音与 resume/SW 缓存问题）。本文档随重装进度持续维护，每次重大架构变更必须回写本文档。*
