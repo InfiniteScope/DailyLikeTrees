@@ -28,7 +28,7 @@
 
     <!-- Settings slide-up panel -->
     <Transition name="slide-up">
-      <SettingsPanel v-if="showSettings" @close="showSettings = false" />
+      <SettingsPanel v-if="showSettings" open-on-mount @close="showSettings = false" />
     </Transition>
 
     <!-- Dev test button (hidden in production) -->

@@ -1341,6 +1341,7 @@ function applyCamera(): void {
 
 // ── Panning ──
 function onPointerDown(e: PointerEvent) {
+  if (props.isBackground) return
   if (!(e.target as HTMLElement)?.closest?.('canvas')) return
   isPanning = true
   panStart = { x: e.clientX - camX, y: e.clientY - camY }
@@ -1497,10 +1498,13 @@ watch(() => props.forceRefresh, () => {
 })
 
 let prevWeather: WeatherType | null = null
+let prevTerrain: TerrainType | null = props.terrain
 watch(() => [props.trees, props.terrain, props.weather], () => {
   if (!app) return
   const weatherChanged = props.weather !== prevWeather
   prevWeather = props.weather
+  const terrainChanged = props.terrain !== prevTerrain
+  prevTerrain = props.terrain
 
   // Only restart weather effects when weather actually changed
   if (weatherChanged) {
@@ -1521,7 +1525,13 @@ watch(() => [props.trees, props.terrain, props.weather], () => {
     for (let gx = 0; gx < cols; gx++)
       tileKinds[gy][gx] = getTileKind(gx, gy, props.terrain, rows, cols)
   }
-  treePlacements.value = assignTreePositions(props.trees, tileKinds, rows, cols)
+  const idsChanged =
+    props.trees.length !== treePlacements.value.size ||
+    props.trees.some(t => !treePlacements.value.has(t.id))
+
+  // Keep positions stable when only weather/object identity (fetchTrees) changes
+  if (idsChanged || terrainChanged || treePlacements.value.size === 0)
+    treePlacements.value = assignTreePositions(props.trees, tileKinds, rows, cols)
 
   centerCamera()
   fullRender()
