@@ -28,14 +28,24 @@ export const useForestStore = defineStore('forest', () => {
   const loading = ref(false)
   const forceRefresh = ref(0)
 
-  async function fetchTrees() {
+  async function fetchTrees(retries = 3) {
     loading.value = true
     try {
-      const { data } = await api.getTrees(timeFilter.value)
-      trees.value = data.trees
-      stats.value = data.stats
-    } catch (err) {
-      console.error('Failed to fetch trees:', err)
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const { data } = await api.getTrees(timeFilter.value)
+          trees.value = data.trees
+          stats.value = data.stats
+          break
+        } catch (err) {
+          if (attempt < retries) {
+            // Backend may still be starting (Electron spawn race)
+            await new Promise(r => setTimeout(r, 1000))
+            continue
+          }
+          console.error('Failed to fetch trees:', err)
+        }
+      }
     } finally {
       loading.value = false
     }

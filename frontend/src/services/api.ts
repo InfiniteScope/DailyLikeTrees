@@ -36,6 +36,7 @@ async function getLocalDb() {
 // ═════════════════════════════════════════════════════════════
 
 export interface SessionCreateData {
+  client_id?: string
   timer_mode: string
   target_seconds: number
   actual_seconds: number

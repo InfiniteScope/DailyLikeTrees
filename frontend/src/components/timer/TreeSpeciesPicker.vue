@@ -32,11 +32,12 @@ import { useTimerStore } from '../../stores/timer'
 import { TREE_SPECIES } from '../../utils/constants'
 import { getSpeciesPreviewPath } from '../../utils/assetPaths'
 
-defineEmits(['close'])
+const emit = defineEmits<{ (e: 'close'): void }>()
 const store = useTimerStore()
 
 function selectAndClose(id: string) {
   store.selectSpecies(id)
+  emit('close')
 }
 </script>
 

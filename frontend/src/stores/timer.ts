@@ -12,7 +12,18 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { TimerMode, TimerStatus } from '../types/timer'
 import { completeSession } from '../services/api'
+import type { SessionCreateData } from '../services/api'
+import {
+  enqueuePendingSession,
+  readPendingSessions,
+  removePendingSession,
+} from '../services/pendingSessions'
 import { useForestStore } from './forest'
+
+function newClientId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
 
 export const useTimerStore = defineStore('timer', () => {
   // ── State ──
@@ -125,21 +136,53 @@ export const useTimerStore = defineStore('timer', () => {
     if (elapsedSeconds.value < 30) return
 
     const endedAt = new Date().toISOString()
+    const payload: SessionCreateData = {
+      client_id: newClientId(),
+      timer_mode: mode.value,
+      target_seconds: targetSeconds.value,
+      actual_seconds: elapsedSeconds.value,
+      species_id: selectedSpeciesId.value,
+      started_at: startedAt || endedAt,
+      ended_at: endedAt,
+    }
+
+    // Persist before sending so a crash/offline failure cannot lose the tree
+    enqueuePendingSession(payload)
+
     try {
-      const { data } = await completeSession({
-        timer_mode: mode.value,
-        target_seconds: targetSeconds.value,
-        actual_seconds: elapsedSeconds.value,
-        species_id: selectedSpeciesId.value,
-        started_at: startedAt || endedAt,
-        ended_at: endedAt,
-      })
+      const { data } = await completeSession(payload)
+      removePendingSession(payload.client_id)
       currentSessionId.value = data.session.id
       // Refresh forest so the new tree appears
       useForestStore().fetchTrees()
+      void flushPendingSessions()
     } catch (err) {
-      console.error('Failed to save session:', err)
+      console.error('Failed to save session (queued for retry):', err)
     }
+  }
+
+  let flushing = false
+
+  /** Replay sessions that never reached the backend. Idempotent per client_id. */
+  async function flushPendingSessions() {
+    if (flushing) return
+    flushing = true
+    let planted = false
+    try {
+      for (const item of readPendingSessions()) {
+        try {
+          await completeSession(item)
+          removePendingSession(item.client_id)
+          planted = true
+        } catch (err) {
+          console.error('Failed to replay pending session:', err)
+          break
+        }
+      }
+    } finally {
+      flushing = false
+    }
+    if (planted) useForestStore().fetchTrees()
   }
 
   function abandon() {
@@ -167,6 +210,6 @@ export const useTimerStore = defineStore('timer', () => {
     displaySeconds, progressPercent, formattedTime,
     isRunning, isPaused, isIdle, isCompleted,
     setMode, setTargetDuration, selectSpecies,
-    start, pause, resume, complete, abandon, reset,
+    start, pause, resume, complete, abandon, reset, flushPendingSessions,
   }
 })

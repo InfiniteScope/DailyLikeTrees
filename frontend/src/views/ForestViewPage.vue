@@ -97,8 +97,8 @@ import { useForestStore } from '../stores/forest'
 import { TIME_FILTER_LABELS, TERRAIN_LABELS, WEATHER_LABELS } from '../types/forest'
 import type { TerrainType, WeatherType, TimeFilter } from '../types/forest'
 import {
-  TreePine, Waves, Tent,
-  Sun, CloudFog, CloudRain, CloudLightning,
+  TreePine, Waves, Tent, Mountain,
+  Sun, Cloud, CloudFog, CloudRain, CloudLightning,
 } from '@lucide/vue'
 import IsometricGrid from '../components/forest/IsometricGrid.vue'
 import IconSvg from '../components/icons/IconSvg.vue'

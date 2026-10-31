@@ -17,24 +17,22 @@
         <IconSvg name="tree" :size="20" />
         <span class="tab-label">森林</span>
       </router-link>
-      <button class="tab-item" @click="toggleSettings">
+      <button class="tab-item" @click="showSettings = true">
         <IconSvg name="settings" :size="20" />
         <span class="tab-label">设置</span>
       </button>
     </nav>
+
+    <SettingsPanel v-if="showSettings" open-on-mount @close="showSettings = false" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import IconSvg from '../../icons/IconSvg.vue'
+import SettingsPanel from '../../settings/SettingsPanel.vue'
 
-const emit = defineEmits<{
-  (e: 'toggle-settings'): void
-}>()
-
-function toggleSettings() {
-  emit('toggle-settings')
-}
+const showSettings = ref(false)
 </script>
 
 <style scoped>

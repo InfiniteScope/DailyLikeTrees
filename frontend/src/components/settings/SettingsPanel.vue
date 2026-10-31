@@ -1,11 +1,11 @@
 <template>
   <div class="settings-fab">
-    <button class="fab-btn" @click="open = !open" title="设置">
+    <button v-if="!openOnMount" class="fab-btn" @click="open = !open" title="设置">
       <IconSvg name="settings" :size="20" />
     </button>
 
     <Teleport to="body">
-      <div v-if="open" class="settings-overlay" @click.self="open = false">
+      <div v-if="open" class="settings-overlay" @click.self="closeDrawer">
         <div class="settings-drawer">
           <h3>设置</h3>
 
@@ -87,7 +87,7 @@
             </span>
           </div>
 
-          <button class="close-drawer" @click="open = false">关闭</button>
+          <button class="close-drawer" @click="closeDrawer">关闭</button>
         </div>
       </div>
 
@@ -119,10 +119,18 @@ import { useAudioStore } from '../../stores/audio'
 import { Eye, EyeOff, TimerOff } from '@lucide/vue'
 import IconSvg from '../icons/IconSvg.vue'
 
+const props = defineProps<{ openOnMount?: boolean }>()
+const emit = defineEmits<{ (e: 'close'): void }>()
+
 const settings = useSettingsStore()
 const audio = useAudioStore()
-const open = ref(false)
+const open = ref(props.openOnMount ?? false)
 const showDevConfirm = ref(false)
+
+function closeDrawer() {
+  open.value = false
+  emit('close')
+}
 
 function confirmDevMode() {
   settings.enableDevMode()

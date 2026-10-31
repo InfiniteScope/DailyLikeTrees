@@ -109,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useTimerStore } from '../../stores/timer'
 import { useSettingsStore } from '../../stores/settings'
 import { TREE_SPECIES } from '../../utils/constants'
@@ -240,14 +240,21 @@ function onPointerUp(e: PointerEvent) {
 
 // ── Celebration animation ──
 
+let celebrationTimer: ReturnType<typeof setTimeout> | null = null
+
 watch(() => store.isCompleted, (completed) => {
   if (completed && store.elapsedSeconds >= 30) {
     const species = TREE_SPECIES.find(s => s.id === store.selectedSpeciesId)
     const growth = getGrowthStage(store.elapsedSeconds / 60)
     plantedLabel.value = `${species?.name || '树'} · ${getGrowthLabel(growth)}`
     showCelebration.value = true
-    setTimeout(() => { showCelebration.value = false }, 3000)
+    if (celebrationTimer) clearTimeout(celebrationTimer)
+    celebrationTimer = setTimeout(() => { showCelebration.value = false }, 3000)
   }
+})
+
+onUnmounted(() => {
+  if (celebrationTimer) clearTimeout(celebrationTimer)
 })
 </script>
 

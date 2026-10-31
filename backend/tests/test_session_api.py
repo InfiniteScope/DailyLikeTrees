@@ -79,3 +79,36 @@ def test_list_sessions_pagination(client):
     resp = client.get("/api/sessions?limit=2&offset=1").json()
     assert resp["total"] == 3
     assert len(resp["sessions"]) == 2
+
+
+def test_client_id_is_idempotent(client):
+    payload = session_payload(25 * 60)
+    payload["client_id"] = "retry-key-1"
+
+    first = client.post("/api/sessions", json=payload)
+    second = client.post("/api/sessions", json=payload)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["session"]["id"] == second.json()["session"]["id"]
+    assert first.json()["tree"]["id"] == second.json()["tree"]["id"]
+    assert client.get("/api/sessions").json()["total"] == 1
+    assert client.get("/api/trees?filter=total").json()["stats"]["count"] == 1
+
+
+def test_distinct_client_ids_plant_distinct_trees(client):
+    for key in ("a", "b"):
+        payload = session_payload(600)
+        payload["client_id"] = key
+        client.post("/api/sessions", json=payload)
+
+    assert client.get("/api/sessions").json()["total"] == 2
+    assert client.get("/api/trees?filter=total").json()["stats"]["count"] == 2
+
+
+def test_missing_client_id_is_not_deduplicated(client):
+    payload = session_payload(600)
+    client.post("/api/sessions", json=payload)
+    client.post("/api/sessions", json=payload)
+
+    assert client.get("/api/sessions").json()["total"] == 2
